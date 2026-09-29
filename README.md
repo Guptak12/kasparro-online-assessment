@@ -15,7 +15,7 @@ The CLI:
 - analyzes public GitHub activity and repositories; and
 - writes every candidate outcome to `output/results.json`.
 
-The committed result contains 50 parsed resumes: 38 eligible, 12 rejected, and 0 failed.
+The committed result contains 50 parsed resumes: 36 eligible, 14 rejected, and 0 failed.
 
 ## Approach
 
@@ -25,7 +25,8 @@ The application runs the following pipeline:
    and isolate malformed-file failures.
 2. **Extract evidence:** identify name, email, GitHub URL, skills, Python evidence, AI/ML evidence,
    and engineering evidence.
-3. **Apply the eligibility gate:** require both Python and AI/ML evidence before scoring.
+3. **Apply the eligibility gate:** require Python evidence plus applied AI/ML project or
+   implementation evidence before scoring.
 4. **Assess project depth:** ask Gemini for bounded depth labels. If Gemini is unavailable,
    rate-limited, or returns invalid data, use the deterministic assessor.
 5. **Analyze GitHub:** score recent public activity and relevant non-fork repositories. Optionally
@@ -37,16 +38,29 @@ The application runs the following pipeline:
 
 One bad resume or failed external request does not stop the batch.
 
+## Design Decisions
+
+- The CLI is the primary interface because the assessment does not require a web API.
+- Eligibility, numeric scoring, deductions, and ranking are deterministic. Gemini only returns
+  schema-validated project-depth labels and short evidence snippets.
+- Scoring weights, subcategory caps, evidence multipliers, and penalties live in one versioned
+  policy object. Each eligible result records the policy version and evidence used per category.
+- LLM and GitHub work use separate bounded worker pools. GitHub results are reused when multiple
+  resumes reference the same normalized username.
+- PDF layout text and document metadata are used to improve extraction. Every name records its
+  source and confidence so filename or metadata fallbacks are visible to reviewers.
+
 ## Eligibility
 
 A candidate must have both:
 
 1. Python evidence; and
-2. AI/ML evidence, such as machine learning, deep learning, NLP, LLMs, RAG, agents, or evaluation.
+2. applied AI/ML project or implementation evidence, such as machine learning, deep learning,
+   NLP, LLMs, RAG, or agents.
 
-Coursework-only, tutorial-only, negated, or incidental mentions do not satisfy the gate. Rejected
-candidates remain in the output with explicit reasons, but receive no score or rank. GitHub does
-not affect eligibility.
+An AI term in a skills list is not enough. Coursework-only, tutorial-only, negated, or incidental
+mentions also do not satisfy the gate. Rejected candidates remain in the output with explicit
+reasons, but receive no score or rank. GitHub does not affect eligibility.
 
 ## Scoring
 
@@ -201,6 +215,47 @@ total = clamp(
 
 Candidates are ranked by total score, then AI score, then Python/backend score, then name.
 
+## Architecture
+
+The project is a CLI-first modular monolith. Local code owns parsing, eligibility, scoring,
+ranking, validation, and output. Gemini and GitHub are optional enrichment adapters; either can
+fail without stopping the batch.
+
+```text
+CLI (main.py / cli.py)
+          │
+          ▼
+Pipeline orchestration (pipeline.py)
+          │
+          ├── Discover, hash, and parse resumes (ingestion.py)
+          │             │
+          │             ▼
+          ├── Extract profile and evidence (extraction.py)
+          │             │
+          │             ▼
+          ├── Apply hard eligibility gate (eligibility.py)
+          │             │
+          │             ├── rejected ──────────────────────────────┐
+          │             │                                          │
+          │             └── eligible                               │
+          │                    │                                    │
+          │                    ├── Gemini project assessment        │
+          │                    │   with local fallback (llm.py)     │
+          │                    │                                    │
+          │                    └── GitHub activity, repositories,   │
+          │                        and security hygiene (github.py)  │
+          │                              │                          │
+          │                              ▼                          │
+          ├── Apply versioned scoring policy (policy.py/scoring.py) │
+          │                              │                          │
+          └── Rank, validate, and atomically write JSON ◄───────────┘
+                                      (models.py / pipeline.py)
+```
+
+LLM and GitHub enrichment use independent bounded worker pools. Multiple resumes that reference
+the same normalized GitHub username share one assessment. Typed Pydantic models define the data
+contracts between stages and validate the complete output before it replaces the previous file.
+
 ## Setup
 
 Requires Python 3.11 or newer.
@@ -247,8 +302,9 @@ Options:
 ## Output and privacy
 
 `output/results.json` contains run metadata, batch totals, every candidate outcome, eligibility
-evidence, category scores, deductions, GitHub status, warnings, and ranks. It also contains
-candidate email addresses and should be handled as private applicant data.
+evidence, name-source confidence, category scores and their evidence, scoring-policy version,
+deductions, GitHub status, warnings, and ranks. It also contains candidate email addresses and
+should be handled as private applicant data.
 
 Before a Gemini request, the application removes detected names, emails, phone numbers, and URLs.
 Responses must match a schema, and cited evidence is kept only when it occurs in the resume. Use
@@ -261,6 +317,13 @@ real applicant data.
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
 ```
+
+## If I Had More Time
+
+- Build a labeled evaluation set and measure eligibility precision/recall and ranking agreement.
+- Add OCR fallback for image-only PDFs and stronger recovery for multi-column layouts.
+- Add persistent, expiry-aware caches for Gemini and GitHub requests.
+- Add a small review UI only after the core screening behavior is validated.
 
 ## Documentation
 

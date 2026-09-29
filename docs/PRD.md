@@ -458,40 +458,31 @@ PipelineService
  └── ResultWriter ◄──────────────────────────┘
 ```
 
-### 12.3 Proposed package layout
+### 12.3 Implemented package layout
 
 ```text
 resume-screener/
 ├── main.py
+├── pyproject.toml
+├── README.md
+├── .env.example
 ├── src/resume_screener/
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── cli.py
 │   ├── config.py
 │   ├── models.py
-│   ├── application/pipeline.py
-│   ├── ingestion/
-│   │   ├── discovery.py
-│   │   ├── base.py
-│   │   ├── pdf_parser.py
-│   │   ├── docx_parser.py
-│   │   └── txt_parser.py
-│   ├── extraction/
-│   │   ├── normalizer.py
-│   │   ├── contact.py
-│   │   ├── skills.py
-│   │   └── projects.py
-│   ├── domain/
-│   │   ├── eligibility.py
-│   │   ├── scoring.py
-│   │   ├── penalties.py
-│   │   └── ranking.py
-│   ├── integrations/
-│   │   ├── llm/base.py
-│   │   ├── llm/provider.py
-│   │   └── github/client.py
-│   └── output/json_writer.py
+│   ├── ingestion.py
+│   ├── extraction.py
+│   ├── eligibility.py
+│   ├── llm.py
+│   ├── github.py
+│   ├── policy.py
+│   ├── scoring.py
+│   └── pipeline.py
 ├── tests/
-├── pyproject.toml
-├── .env.example
-└── README.md
+├── docs/
+└── output/results.json
 ```
 
 ### 12.4 Runtime data flow
@@ -510,20 +501,16 @@ Each transition uses a typed Pydantic model. Failures become data records rather
 
 ### 12.5 Concurrency
 
-- File parsing may run sequentially or in a small bounded worker pool.
-- LLM calls use asynchronous bounded concurrency; default maximum: 3.
-- GitHub calls use asynchronous bounded concurrency; default maximum: 5.
+- File parsing runs sequentially for predictable per-file failure isolation.
+- LLM calls use a bounded thread pool; default maximum: 2.
+- GitHub calls use a separate bounded thread pool; default maximum: 5.
 - Concurrency limits must be configurable.
 - No unbounded task creation is permitted.
 
 ### 12.6 Caching
 
-The MVP uses in-memory per-run caches:
-
-- GitHub response keyed by normalized username.
-- LLM assessment keyed by resume content hash, model, and prompt version.
-
-Persistent caching is a future enhancement and is not required.
+The MVP reuses GitHub assessments by normalized username and caches repeated HTTP paths inside
+each GitHub client. Persistent and cross-run caching remains a future enhancement.
 
 ## 13. Data model and output contract
 

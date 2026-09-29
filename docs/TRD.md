@@ -90,19 +90,15 @@ This separation keeps external failures away from ingestion and permits the dete
 | Dependency | Purpose | Rationale |
 |---|---|---|
 | `pydantic>=2` | Typed models and validation | Strong contracts for extracted and model-generated data. |
-| `pydantic-settings>=2` | Environment configuration | Centralized validation and secret-safe settings. |
 | `pypdf` | PDF text extraction | Lightweight, pure-Python PDF support. |
 | `python-docx` | Optional DOCX extraction | Bonus format with small implementation cost. |
-| `httpx` | Async GitHub and provider HTTP | Timeouts, connection pooling, and async support. |
-| Standard-library `urllib` | Gemini Interactions API requests | Keeps the submission dependency-light while still using schema-constrained Gemini responses. |
+| Standard-library `urllib` | Gemini and GitHub requests | Keeps the submission dependency-light while retaining explicit timeouts and error handling. |
 
 ### 4.3 Development dependencies
 
 - `pytest`
-- `pytest-asyncio`
 - `pytest-cov`
 - `ruff`
-- `mypy`
 
 No dependency shall be introduced when the standard library provides an equally clear solution within the time-box.
 
@@ -116,52 +112,21 @@ resume-screener/
 ├── .env.example
 ├── src/resume_screener/
 │   ├── __init__.py
+│   ├── __main__.py
+│   ├── cli.py
 │   ├── config.py
 │   ├── models.py
-│   ├── errors.py
-│   ├── logging.py
-│   ├── application/
-│   │   ├── pipeline.py
-│   │   └── enrichment.py
-│   ├── ingestion/
-│   │   ├── discovery.py
-│   │   ├── hashing.py
-│   │   ├── base.py
-│   │   ├── registry.py
-│   │   ├── pdf.py
-│   │   ├── docx.py
-│   │   └── text.py
-│   ├── extraction/
-│   │   ├── normalize.py
-│   │   ├── sections.py
-│   │   ├── contact.py
-│   │   ├── github_url.py
-│   │   └── candidate.py
-│   ├── domain/
-│   │   ├── evidence.py
-│   │   ├── eligibility.py
-│   │   ├── scoring.py
-│   │   ├── penalties.py
-│   │   └── ranking.py
-│   ├── integrations/
-│   │   ├── llm/
-│   │   │   ├── base.py
-│   │   │   ├── disabled.py
-│   │   │   └── provider.py
-│   │   └── github/
-│   │       ├── client.py
-│   │       ├── models.py
-│   │       ├── activity.py
-│   │       ├── repositories.py
-│   │       └── security.py
-│   └── output/
-│       ├── schema.py
-│       └── json_writer.py
-└── tests/
-    ├── fixtures/
-    ├── unit/
-    ├── integration/
-    └── prompt/
+│   ├── ingestion.py
+│   ├── extraction.py
+│   ├── eligibility.py
+│   ├── llm.py
+│   ├── github.py
+│   ├── policy.py
+│   ├── scoring.py
+│   └── pipeline.py
+├── tests/
+├── docs/
+└── output/results.json
 ```
 
 ## 6. Core data contracts
@@ -608,8 +573,7 @@ Official references:
 - Set `Accept: application/vnd.github+json`.
 - Set the configured supported GitHub API version header.
 - Authenticate with `GITHUB_TOKEN` when present.
-- Use one shared `httpx.AsyncClient` per run.
-- Apply connect/read/write/pool timeouts.
+- Use standard-library HTTPS requests with an explicit timeout.
 - Respect `x-ratelimit-remaining`, `x-ratelimit-reset`, and `retry-after`.
 - Do not retry 404 responses.
 - Retry transient 5xx/network failures at most twice with bounded exponential backoff and jitter.
@@ -742,24 +706,16 @@ Using the maximum finding rather than summing findings reduces double punishment
 
 ### 15.1 Concurrency model
 
-- Local parsing is sequential in the MVP for predictable error isolation.
-- Eligible-candidate enrichment uses `asyncio`.
-- Independent LLM and GitHub work may run concurrently.
-- LLM and GitHub each use separate semaphores.
-- A global candidate task count is bounded to avoid memory growth.
+- Local parsing is sequential for predictable error isolation.
+- LLM and GitHub enrichment use separate bounded `ThreadPoolExecutor` pools.
+- LLM concurrency defaults to 2 and GitHub concurrency defaults to 5; both are configurable.
+- GitHub work is deduplicated by normalized username before tasks are submitted.
 
 ### 15.2 Candidate boundary
 
-```python
-async def process_enrichment(profile: CandidateProfile) -> EnrichmentBundle:
-    llm_result, github_result = await asyncio.gather(
-        safe_llm_assessment(profile),
-        safe_github_enrichment(profile),
-    )
-    return EnrichmentBundle(llm=llm_result, github=github_result)
-```
-
-Each `safe_*` function converts exceptions into typed integration results. `return_exceptions=True` is not a substitute for explicit typed conversion.
+Each completed future is converted to a typed integration result. Unexpected LLM errors use the
+deterministic assessor; unexpected GitHub errors produce a zero-point failed assessment without
+stopping the batch.
 
 ### 15.3 Cancellation
 
@@ -769,10 +725,9 @@ Keyboard interruption should cancel pending enrichment, avoid starting new reque
 
 MVP caches are in-memory and scoped to one run:
 
-- Parsed file result keyed by content hash.
-- LLM assessment keyed by content hash + model + prompt version.
-- GitHub profile/repository/events keyed by normalized username.
-- Repository tree/content keyed by repository + default-branch SHA.
+- Duplicate resume content is detected by SHA-256 before enrichment.
+- GitHub assessments are reused by normalized username.
+- Repeated GitHub HTTP paths are cached inside each candidate's client.
 
 Cache values include successful and terminal not-found results. Transient failures and rate-limit responses are not cached as successful data.
 

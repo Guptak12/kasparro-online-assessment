@@ -58,6 +58,7 @@ class ParsedResume(BaseModel):
     raw_text: str
     pages: list[str] = Field(default_factory=list)
     parser_name: str
+    metadata: dict[str, str] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -65,6 +66,8 @@ class CandidateProfile(BaseModel):
     candidate_id: str
     source_file: str
     candidate_name: str
+    name_source: Literal["resume_header", "pdf_metadata", "linkedin", "email", "filename"] = "filename"
+    name_confidence: Literal["high", "medium", "low"] = "low"
     email: str | None = None
     github_url: str | None = None
     github_username: str | None = None
@@ -73,6 +76,7 @@ class CandidateProfile(BaseModel):
     python_evidence: list[Evidence] = Field(default_factory=list)
     ai_evidence: list[Evidence] = Field(default_factory=list)
     engineering_evidence: list[Evidence] = Field(default_factory=list)
+    evidence_by_category: dict[str, list[Evidence]] = Field(default_factory=dict)
     extraction_warnings: list[str] = Field(default_factory=list)
 
 
@@ -177,6 +181,12 @@ class ScoreBreakdown(BaseModel):
         return self
 
 
+class ScoreCalculation(BaseModel):
+    breakdown: ScoreBreakdown
+    evidence: dict[str, list[str]] = Field(default_factory=dict)
+    policy_version: str
+
+
 class FailureRecord(BaseModel):
     stage: str
     code: str
@@ -190,6 +200,8 @@ class CandidateResult(BaseModel):
     status: CandidateStatus
     rank: int | None = Field(default=None, ge=1)
     candidate_name: str
+    name_source: Literal["resume_header", "pdf_metadata", "linkedin", "email", "filename"] = "filename"
+    name_confidence: Literal["high", "medium", "low"] = "low"
     email: str | None = None
     github_url: str | None = None
     eligible: bool
@@ -197,6 +209,8 @@ class CandidateResult(BaseModel):
     matched_skills: list[str] = Field(default_factory=list)
     eligibility_evidence: dict[str, list[Evidence]] = Field(default_factory=dict)
     score_breakdown: ScoreBreakdown | None = None
+    score_evidence: dict[str, list[str]] = Field(default_factory=dict)
+    scoring_policy_version: str | None = None
     project_summary: str | None = None
     strengths: list[str] = Field(default_factory=list)
     concerns: list[str] = Field(default_factory=list)

@@ -26,7 +26,10 @@ class EligibilityTests(unittest.TestCase):
             )
         )
         self.assertFalse(result.eligible)
-        self.assertEqual(result.rejection_reasons, ["No reliable AI/ML evidence was found."])
+        self.assertEqual(
+            result.rejection_reasons,
+            ["No applied AI/ML project or implementation evidence was found."],
+        )
 
     def test_incidental_coursework_does_not_pass(self) -> None:
         result = assess_eligibility(
@@ -46,6 +49,16 @@ class EligibilityTests(unittest.TestCase):
             )
         )
         self.assertTrue(result.eligible)
+
+    def test_skill_only_ai_mention_does_not_pass(self) -> None:
+        result = assess_eligibility(
+            profile(
+                [Evidence(text="Built a Python API", strength=EvidenceStrength.APPLIED)],
+                [Evidence(text="Skills: machine learning", strength=EvidenceStrength.SKILL)],
+            )
+        )
+        self.assertFalse(result.eligible)
+        self.assertEqual(result.ai_evidence, [])
 
 
 if __name__ == "__main__":

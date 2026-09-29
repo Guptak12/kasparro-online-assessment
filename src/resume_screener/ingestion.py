@@ -67,20 +67,32 @@ def _normalise_text(text: str, limit: int) -> tuple[str, bool]:
     return text[:limit], truncated
 
 
-def _extract_pdf(path: Path) -> tuple[str, list[str], str]:
+def _extract_pdf(path: Path) -> tuple[str, list[str], str, dict[str, str]]:
     try:
         reader = PdfReader(path)
         if reader.is_encrypted:
             raise ResumeParseError("encrypted_pdf", "Encrypted PDFs are not supported")
-        pages = [(page.extract_text() or "") for page in reader.pages]
+        pages = []
+        for page in reader.pages:
+            default_text = page.extract_text() or ""
+            try:
+                layout_text = page.extract_text(extraction_mode="layout") or ""
+            except Exception:
+                layout_text = ""
+            pages.append(layout_text if layout_text.strip() else default_text)
+        metadata = {
+            str(key).lstrip("/"): str(value)
+            for key, value in (reader.metadata or {}).items()
+            if value is not None
+        }
     except ResumeParseError:
         raise
     except Exception as exc:  # library exceptions vary across malformed PDFs
         raise ResumeParseError("invalid_pdf", f"Could not parse PDF: {exc}") from exc
-    return "\n\n".join(pages), pages, "pypdf"
+    return "\n\n".join(pages), pages, "pypdf-layout", metadata
 
 
-def _extract_docx(path: Path) -> tuple[str, list[str], str]:
+def _extract_docx(path: Path) -> tuple[str, list[str], str, dict[str, str]]:
     try:
         document = Document(path)
         lines = [paragraph.text for paragraph in document.paragraphs]
@@ -89,12 +101,17 @@ def _extract_docx(path: Path) -> tuple[str, list[str], str]:
                 lines.append(" | ".join(cell.text.strip() for cell in row.cells))
     except Exception as exc:
         raise ResumeParseError("invalid_docx", f"Could not parse DOCX: {exc}") from exc
-    return "\n".join(lines), [], "python-docx"
+    metadata = {}
+    if document.core_properties.author:
+        metadata["Author"] = document.core_properties.author
+    if document.core_properties.title:
+        metadata["Title"] = document.core_properties.title
+    return "\n".join(lines), [], "python-docx", metadata
 
 
-def _extract_txt(path: Path) -> tuple[str, list[str], str]:
+def _extract_txt(path: Path) -> tuple[str, list[str], str, dict[str, str]]:
     try:
-        return path.read_text(encoding="utf-8", errors="replace"), [], "utf-8"
+        return path.read_text(encoding="utf-8", errors="replace"), [], "utf-8", {}
     except OSError as exc:
         raise ResumeParseError("unreadable_file", f"Could not read text file: {exc}") from exc
 
@@ -109,11 +126,11 @@ def parse_resume(path: Path, settings: Settings) -> ParsedResume:
 
     extension = path.suffix.lower()
     if extension == ".pdf":
-        text, pages, parser = _extract_pdf(path)
+        text, pages, parser, metadata = _extract_pdf(path)
     elif extension == ".docx":
-        text, pages, parser = _extract_docx(path)
+        text, pages, parser, metadata = _extract_docx(path)
     elif extension == ".txt":
-        text, pages, parser = _extract_txt(path)
+        text, pages, parser, metadata = _extract_txt(path)
     else:
         raise ResumeParseError("unsupported_type", f"Unsupported extension: {extension}")
 
@@ -134,5 +151,6 @@ def parse_resume(path: Path, settings: Settings) -> ParsedResume:
         raw_text=text,
         pages=pages,
         parser_name=parser,
+        metadata=metadata,
         warnings=warnings,
     )
