@@ -4,7 +4,7 @@
 |---|---|
 | Document version | 1.0 |
 | Status | Implementation-ready draft |
-| Related PRD | `AI_Resume_Screening_PRD.md` |
+| Related PRD | `PRD.md` |
 | Architecture | CLI-first modular monolith |
 | Runtime | Python 3.11+ |
 | Canonical interface | Command-line batch job |
@@ -114,8 +114,6 @@ resume-screener/
 ├── pyproject.toml
 ├── README.md
 ├── .env.example
-├── prompts/
-│   └── project_assessment_v1.txt
 ├── src/resume_screener/
 │   ├── __init__.py
 │   ├── config.py

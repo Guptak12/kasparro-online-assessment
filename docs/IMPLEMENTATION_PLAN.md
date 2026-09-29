@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Plan version | 1.0 |
-| Related documents | `AI_Resume_Screening_PRD.md`, `AI_Resume_Screening_TRD.md` |
+| Related documents | `PRD.md`, `TRD.md` |
 | Delivery target | Functional MVP within 2–3 hours |
 | Delivery model | Sequential critical path with optional bonuses after core verification |
 | Primary language | Python 3.11+ |
@@ -263,7 +263,7 @@ Do not ship a broad, untested regex scanner merely to claim the feature.
 
 - IP-0601: Define `ProjectAssessor` protocol.
 - IP-0602: Implement `DisabledProjectAssessor` using extracted evidence.
-- IP-0603: Add versioned `project_assessment_v1` prompt.
+- IP-0603: Keep the versioned project-assessment prompt in the LLM adapter.
 - IP-0604: Implement `GeminiProjectAssessor` using `gemini-3.5-flash-lite` and schema-constrained structured output.
 - IP-0605: Validate response with Pydantic.
 - IP-0606: Confirm returned evidence exists in resume text.

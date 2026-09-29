@@ -488,7 +488,6 @@ resume-screener/
 │   │   ├── llm/provider.py
 │   │   └── github/client.py
 │   └── output/json_writer.py
-├── prompts/project_assessment_v1.txt
 ├── tests/
 ├── pyproject.toml
 ├── .env.example
