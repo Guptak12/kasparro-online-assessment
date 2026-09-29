@@ -1,51 +1,41 @@
 # SDE Intern Resume Screener
 
-Python CLI for screening the supplied 50-resume dataset. It parses PDF, DOCX, and TXT files,
-requires evidence of both Python and AI/ML, scores eligible candidates, checks public GitHub
-activity, and writes the complete result to `output/results.json`.
+## What this project does
 
-## Setup
+This project screens a directory of resumes for an SDE internship that requires Python and AI/ML
+experience. It was built for the supplied 50-resume assessment dataset.
 
-Requires Python 3.11 or newer.
+The CLI:
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-cp .env.example .env
-```
+- parses PDF, DOCX, and TXT resumes;
+- extracts candidate details, skills, project evidence, and GitHub profiles;
+- rejects candidates without both Python and AI/ML evidence;
+- scores eligible candidates out of 100;
+- uses Gemini for structured project-depth assessment, with a deterministic fallback;
+- analyzes public GitHub activity and repositories; and
+- writes every candidate outcome to `output/results.json`.
 
-Set the two credentials in `.env`:
+The committed result contains 50 parsed resumes: 38 eligible, 12 rejected, and 0 failed.
 
-```dotenv
-GEMINI_API_KEY=your_gemini_key
-GITHUB_TOKEN=your_fine_grained_github_token
-```
+## Approach
 
-`.env` is ignored by Git. The GitHub token only needs read access to public resources.
+The application runs the following pipeline:
 
-## Run
+1. **Discover and parse:** find supported files, detect exact duplicates by SHA-256, extract text,
+   and isolate malformed-file failures.
+2. **Extract evidence:** identify name, email, GitHub URL, skills, Python evidence, AI/ML evidence,
+   and engineering evidence.
+3. **Apply the eligibility gate:** require both Python and AI/ML evidence before scoring.
+4. **Assess project depth:** ask Gemini for bounded depth labels. If Gemini is unavailable,
+   rate-limited, or returns invalid data, use the deterministic assessor.
+5. **Analyze GitHub:** score recent public activity and relevant non-fork repositories. Optionally
+   check a bounded set of public files for high-confidence exposed-credential patterns.
+6. **Calculate scores:** convert evidence and depth labels into fixed subcategory points. Gemini
+   never assigns numeric scores or rank.
+7. **Rank and write:** rank eligible candidates using deterministic tie-breakers, validate the
+   complete result with Pydantic, and atomically write JSON.
 
-```bash
-python main.py --input ./resumes --output ./output/results.json
-```
-
-Run without external services:
-
-```bash
-python main.py --input ./resumes --output ./output/results.json --no-llm --no-github
-```
-
-Options:
-
-```text
---recursive          Include nested directories
---no-llm             Use deterministic project assessment
---no-github          Disable GitHub enrichment
---no-security-scan   Disable public-repository credential checks
---compact            Write compact JSON
---env-file PATH      Use a different environment file
-```
+One bad resume or failed external request does not stop the batch.
 
 ## Eligibility
 
@@ -81,12 +71,15 @@ Resume evidence uses these multipliers:
 | Applied implementation | 0.75 |
 | Advanced implementation | 1.00 |
 
-For a resume-based subcategory, the strongest matching evidence determines the multiplier. Its
-score is `round(maximum × multiplier)`.
+For a resume-based subcategory, the strongest matching evidence determines the multiplier:
+
+```text
+subcategory score = round(subcategory maximum × evidence multiplier)
+```
 
 ### AI and project depth: 40 points
 
-Gemini returns depth labels, not points. The deterministic fallback returns the same labels.
+Gemini or the deterministic fallback returns depth labels. Neither returns points.
 
 | Subcategory | Maximum |
 |---|---:|
@@ -146,12 +139,10 @@ backend, API, ML, LLM, RAG, agent, NLP, PyTorch, TensorFlow, Django, Flask, or F
 repository name, description, language, or topics.
 
 ```text
-repository_match = 4 × matched terms + min(stars, 5) + min(forks, 3)
-relevant repository = repository_match > 0
-strong top match = highest repository_match >= 8
-```
+repository match = 4 × matched terms + min(stars, 5) + min(forks, 3)
+relevant repository = repository match > 0
+strong top match = highest repository match >= 8
 
-```text
 4+ relevant repositories and a strong top match → 5 points
 3+ relevant repositories                        → 4 points
 2+ relevant repositories                        → 3 points
@@ -172,7 +163,7 @@ Multiple findings use the largest deduction, not their sum. The deduction is cap
 make the GitHub score negative, and is zero when the scan is incomplete.
 
 ```text
-github = max(0, min(10, activity + repositories) - security_deduction)
+github = max(0, min(10, activity + repositories) - security deduction)
 ```
 
 The scanner stores only the repository, file path, credential type, and an HMAC fingerprint. It
@@ -210,25 +201,60 @@ total = clamp(
 
 Candidates are ranked by total score, then AI score, then Python/backend score, then name.
 
-## Gemini usage
+## Setup
 
-The configured model is `gemini-3.5-flash-lite`. Before a request, the application removes detected
-names, emails, phone numbers, and URLs. Responses must match a schema, and cited evidence is kept
-only when it occurs in the resume. A missing key, timeout, rate limit, or invalid response uses the
-deterministic fallback for that candidate.
+Requires Python 3.11 or newer.
 
-Use `--no-llm` if resume text must not be sent to an external provider. Review Google's current
-[Gemini API pricing and data-use terms](https://ai.google.dev/gemini-api/docs/pricing) before using
-real applicant data.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+cp .env.example .env
+```
 
-## Output
+Set the credentials in `.env`:
+
+```dotenv
+GEMINI_API_KEY=your_gemini_key
+GITHUB_TOKEN=your_fine_grained_github_token
+```
+
+`.env` is ignored by Git. The GitHub token only needs read access to public resources.
+
+## Run
+
+```bash
+python main.py --input ./resumes --output ./output/results.json
+```
+
+Run without external services:
+
+```bash
+python main.py --input ./resumes --output ./output/results.json --no-llm --no-github
+```
+
+Options:
+
+```text
+--recursive          Include nested directories
+--no-llm             Use deterministic project assessment
+--no-github          Disable GitHub enrichment
+--no-security-scan   Disable public-repository credential checks
+--compact            Write compact JSON
+--env-file PATH      Use a different environment file
+```
+
+## Output and privacy
 
 `output/results.json` contains run metadata, batch totals, every candidate outcome, eligibility
 evidence, category scores, deductions, GitHub status, warnings, and ranks. It also contains
 candidate email addresses and should be handled as private applicant data.
 
-The committed result contains the completed dataset run: 50 parsed, 38 eligible, 12 rejected, and
-0 failed.
+Before a Gemini request, the application removes detected names, emails, phone numbers, and URLs.
+Responses must match a schema, and cited evidence is kept only when it occurs in the resume. Use
+`--no-llm` if resume text must not be sent to an external provider. Review Google's current
+[Gemini API pricing and data-use terms](https://ai.google.dev/gemini-api/docs/pricing) before using
+real applicant data.
 
 ## Tests
 
