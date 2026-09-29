@@ -1,9 +1,9 @@
 # Generated output
 
-`results.json` is a schema-valid demonstration generated from two synthetic resumes with Gemini and
-GitHub disabled. It proves the offline end-to-end path without publishing real applicant data.
+`results.json` is the schema-valid output generated from the supplied 50-resume assessment dataset
+with Gemini and GitHub enrichment enabled.
 
-Replace it with the target batch by running:
+Regenerate it by running:
 
 ```bash
 python main.py --input /path/to/50-resumes --output output/results.json
