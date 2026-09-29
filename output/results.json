@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0",
+  "run": {
+    "run_id": "31ef3f38631c4e2fac1bd141cecfba48",
+    "started_at": "2026-09-29T07:54:08.954079Z",
+    "completed_at": "2026-09-29T07:54:08.958620Z",
+    "input_directory": "/Users/destructor/Documents/Codex/2026-09-29/files-mentioned-by-the-user-sde/work/sample_resumes",
+    "output_file": "/Users/destructor/Documents/Codex/2026-09-29/files-mentioned-by-the-user-sde/output/results.json",
+    "duration_ms": 4
+  },
+  "configuration": {
+    "llm_enabled": false,
+    "llm_provider": "gemini",
+    "llm_model": "gemini-3.5-flash-lite",
+    "github_enabled": false,
+    "github_authenticated": false,
+    "github_security_scan_enabled": true,
+    "recursive_discovery": false
+  },
+  "batch_summary": {
+    "total_discovered": 2,
+    "supported": 2,
+    "successfully_parsed": 2,
+    "eligible": 1,
+    "rejected": 1,
+    "duplicates": 0,
+    "failed": 0,
+    "unsupported": 0
+  },
+  "candidates": [
+    {
+      "candidate_id": "20d5e45a828cb2c5",
+      "source_file": "alex_candidate.txt",
+      "status": "eligible",
+      "rank": 1,
+      "candidate_name": "Alex Candidate",
+      "email": "alex.candidate@example.com",
+      "github_url": "https://github.com/example-candidate",
+      "eligible": true,
+      "rejection_reasons": [],
+      "matched_skills": [
+        "AWS",
+        "Docker",
+        "Evaluation",
+        "FastAPI",
+        "Machine Learning",
+        "Observability",
+        "Python",
+        "RAG",
+        "Testing"
+      ],
+      "eligibility_evidence": {
+        "python": [
+          {
+            "text": "Python, FastAPI, PostgreSQL, Machine Learning, Docker, AWS",
+            "section": "skill",
+            "strength": "skill",
+            "terms": [
+              "fastapi",
+              "python"
+            ]
+          },
+          {
+            "text": "Built and deployed a Python FastAPI service for a machine learning classifier with 92% accuracy.",
+            "section": "project",
+            "strength": "applied",
+            "terms": [
+              "fastapi",
+              "python"
+            ]
+          }
+        ],
+        "ai": [
+          {
+            "text": "Python, FastAPI, PostgreSQL, Machine Learning, Docker, AWS",
+            "section": "skill",
+            "strength": "skill",
+            "terms": [
+              "machine learning"
+            ]
+          },
+          {
+            "text": "Built and deployed a Python FastAPI service for a machine learning classifier with 92% accuracy.",
+            "section": "project",
+            "strength": "applied",
+            "terms": [
+              "machine learning"
+            ]
+          },
+          {
+            "text": "Implemented evaluation with precision and recall, pytest tests, structured logging, and Docker.",
+            "section": "project",
+            "strength": "applied",
+            "terms": [
+              "evaluation",
+              "precision",
+              "recall"
+            ]
+          },
+          {
+            "text": "Designed a RAG pipeline with embeddings, chunking, citations, and offline retrieval evaluation.",
+            "section": "project",
+            "strength": "applied",
+            "terms": [
+              "evaluation",
+              "rag"
+            ]
+          }
+        ]
+      },
+      "score_breakdown": {
+        "ai_project_depth": 24,
+        "python_backend": 18,
+        "cloud_fullstack": 5,
+        "github": 0,
+        "engineering_depth": 2,
+        "project_quality_penalty": 0,
+        "penalty_reasons": [],
+        "total_score": 49
+      },
+      "project_summary": "Deterministic project-depth assessment based on resume evidence.",
+      "strengths": [
+        "Shows applied project implementation evidence.",
+        "Shows project ownership or delivery evidence."
+      ],
+      "concerns": [],
+      "github": {
+        "status": "skipped",
+        "username": "example-candidate",
+        "activity_points": 0,
+        "repository_points": 0,
+        "final_points": 0,
+        "summary": "No GitHub username was available or GitHub enrichment was disabled.",
+        "relevant_repositories": [],
+        "security_hygiene": {
+          "status": "not_checked",
+          "repositories_checked": 0,
+          "penalty": 0,
+          "findings": []
+        }
+      },
+      "assessment": {
+        "project_depth": "advanced",
+        "retrieval_depth": "advanced",
+        "agent_depth": "none",
+        "data_workflow_depth": "basic",
+        "evaluation_depth": "applied",
+        "ownership_depth": "applied",
+        "thin_wrapper_severity": "none",
+        "tutorial_severity": "none",
+        "project_summary": "Deterministic project-depth assessment based on resume evidence.",
+        "evidence": [
+          "Python, FastAPI, PostgreSQL, Machine Learning, Docker, AWS",
+          "Built and deployed a Python FastAPI service for a machine learning classifier with 92% accuracy.",
+          "Implemented evaluation with precision and recall, pytest tests, structured logging, and Docker.",
+          "Designed a RAG pipeline with embeddings, chunking, citations, and offline retrieval evaluation.",
+          "Python, FastAPI, PostgreSQL, Machine Learning, Docker, AWS"
+        ],
+        "strengths": [
+          "Shows applied project implementation evidence.",
+          "Shows project ownership or delivery evidence."
+        ],
+        "concerns": [],
+        "provider_status": "skipped",
+        "method": "deterministic_fallback"
+      },
+      "warnings": []
+    },
+    {
+      "candidate_id": "e7ee23c691aefdee",
+      "source_file": "taylor_candidate.txt",
+      "status": "rejected",
+      "candidate_name": "Taylor Candidate",
+      "email": "taylor.candidate@example.com",
+      "eligible": false,
+      "rejection_reasons": [
+        "No reliable Python evidence was found.",
+        "No reliable AI/ML evidence was found."
+      ],
+      "matched_skills": [
+        "Frontend",
+        "SQL"
+      ],
+      "eligibility_evidence": {
+        "python": [],
+        "ai": []
+      },
+      "strengths": [],
+      "concerns": [],
+      "github": {
+        "status": "skipped",
+        "activity_points": 0,
+        "repository_points": 0,
+        "final_points": 0,
+        "summary": "GitHub enrichment not run.",
+        "relevant_repositories": [],
+        "security_hygiene": {
+          "status": "not_checked",
+          "repositories_checked": 0,
+          "penalty": 0,
+          "findings": []
+        }
+      },
+      "warnings": []
+    }
+  ]
+}
