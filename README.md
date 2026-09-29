@@ -40,15 +40,26 @@ One bad resume or failed external request does not stop the batch.
 
 ## Design Decisions
 
-- The CLI is the primary interface because the assessment does not require a web API.
-- Eligibility, numeric scoring, deductions, and ranking are deterministic. Gemini only returns
-  schema-validated project-depth labels and short evidence snippets.
-- Scoring weights, subcategory caps, evidence multipliers, and penalties live in one versioned
-  policy object. Each eligible result records the policy version and evidence used per category.
-- LLM and GitHub work use separate bounded worker pools. GitHub results are reused when multiple
-  resumes reference the same normalized username.
-- PDF layout text and document metadata are used to improve extraction. Every name records its
-  source and confidence so filename or metadata fallbacks are visible to reviewers.
+- The input can contain PDF, DOCX, and TXT resumes. The project uses `pypdf`, `python-docx`, and
+  Python's standard library respectively, then sends all extracted text through the same pipeline.
+- PDF layout text and document metadata are also checked because names are sometimes stored in
+  metadata or placed beside contact details in complex headers.
+- Every candidate is checked against a fixed job-related skill taxonomy covering Python, AI,
+  backend, databases, cloud, deployment, frontend, and engineering practices.
+- The CLI supports two modes: Gemini-assisted assessment and fully local deterministic assessment.
+  The commands for both modes are listed in the Run section.
+- Before a Gemini request, direct contact information and URLs are replaced with placeholders and
+  the remaining text is truncated. Technical project, education, and employment details remain.
+- Gemini has a 45-second timeout per attempt and one retry. If it still fails, the candidate is
+  assessed locally instead of failing the batch.
+- GitHub scoring considers recent public activity and relevant public repositories. A bounded
+  security check can deduct only GitHub points for high-confidence exposed credentials.
+- GitHub failures award zero GitHub points but never change resume eligibility. Repeated references
+  to the same normalized GitHub username reuse one assessment.
+- Eligibility, numeric scoring, deductions, and ranking remain deterministic. Gemini returns only
+  schema-validated project-depth labels and evidence; it never assigns points or rank.
+- Scoring rules live in one versioned policy, and each eligible result records the evidence used
+  for every score category.
 
 ## Eligibility
 
@@ -320,10 +331,21 @@ PYTHONPATH=src python -m unittest discover -s tests -v
 
 ## If I Had More Time
 
-- Build a labeled evaluation set and measure eligibility precision/recall and ranking agreement.
-- Add OCR fallback for image-only PDFs and stronger recovery for multi-column layouts.
-- Add persistent, expiry-aware caches for Gemini and GitHub requests.
-- Add a small review UI only after the core screening behavior is validated.
+- Accept a job description as input and generate a configurable skill taxonomy and scoring policy
+  instead of relying on the current fixed SDE-intern rules.
+- Build a human-labeled evaluation set to measure eligibility precision, recall, name-extraction
+  accuracy, score consistency, and ranking agreement.
+- Add OCR for scanned PDFs and improve recovery for complex multi-column or graphical resumes.
+- Add persistent, expiry-aware Gemini and GitHub caches, request-budget tracking, and resumable
+  batch runs for larger datasets.
+- Compare resume claims with repository languages, files, and project structure while keeping
+  GitHub optional and avoiding unfair penalties for candidates with limited public work.
+- Add bias and privacy audits, optional email redaction in exported results, and configurable data
+  retention before using the tool with real applicants.
+- Add a FastAPI layer for uploading resume batches, starting screening jobs, checking progress,
+  and retrieving results without changing the core pipeline.
+- Add a small reviewer UI for filtering, comparing evidence, and recording human decisions after
+  the core ranking behavior has been evaluated.
 
 ## Documentation
 
