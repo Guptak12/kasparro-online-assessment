@@ -232,35 +232,32 @@ The project is a CLI-first modular monolith. Local code owns parsing, eligibilit
 ranking, validation, and output. Gemini and GitHub are optional enrichment adapters; either can
 fail without stopping the batch.
 
-```text
-CLI (main.py / cli.py)
-          │
-          ▼
-Pipeline orchestration (pipeline.py)
-          │
-          ├── Discover, hash, and parse resumes (ingestion.py)
-          │             │
-          │             ▼
-          ├── Extract profile and evidence (extraction.py)
-          │             │
-          │             ▼
-          ├── Apply hard eligibility gate (eligibility.py)
-          │             │
-          │             ├── rejected ──────────────────────────────┐
-          │             │                                          │
-          │             └── eligible                               │
-          │                    │                                    │
-          │                    ├── Gemini project assessment        │
-          │                    │   with local fallback (llm.py)     │
-          │                    │                                    │
-          │                    └── GitHub activity, repositories,   │
-          │                        and security hygiene (github.py)  │
-          │                              │                          │
-          │                              ▼                          │
-          ├── Apply versioned scoring policy (policy.py/scoring.py) │
-          │                              │                          │
-          └── Rank, validate, and atomically write JSON ◄───────────┘
-                                      (models.py / pipeline.py)
+```mermaid
+flowchart LR
+    A["Resume Inputs<br/>PDF · DOCX · TXT"] --> B["CLI"]
+    B --> C["Pipeline Orchestrator"]
+    C --> D["Parse & Normalize<br/>pypdf · python-docx · standard library"]
+    D --> E["Extract Profile & Evidence<br/>name · skills · projects · GitHub"]
+    E --> F{"Eligibility Gate<br/>Python + applied AI evidence"}
+
+    F -- "Rejected" --> G["Reasons recorded<br/>No score or rank"]
+
+    subgraph X["Optional external enrichment"]
+        H["Sanitize & Truncate"] --> I["Gemini Project Assessment"]
+        I -. "Failure" .-> J["Local Deterministic Fallback"]
+        K["GitHub Analysis<br/>activity · repositories · credential check"]
+    end
+
+    F -- "Eligible" --> H
+    F -- "Eligible" --> K
+    I --> L["Versioned Scoring Policy<br/>40 AI · 30 Python/backend · 15 cloud/full-stack<br/>10 GitHub · 5 engineering"]
+    J --> L
+    K --> L
+    L --> M["Rank & Validate"]
+    M --> N["results.json<br/>atomic · evidence-backed output"]
+
+    O["Deterministic code owns eligibility, points, deductions, and ranking"]
+    O --- L
 ```
 
 LLM and GitHub enrichment use independent bounded worker pools. Multiple resumes that reference
